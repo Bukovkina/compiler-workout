@@ -35,13 +35,13 @@ let update x v s = fun y -> if x = y then v else s y
 (* An example of a non-trivial state: *)                                                   
 let s = update "x" 1 @@ update "y" 2 @@ update "z" 3 @@ update "t" 4 empty
 
-(* Some testing; comment this definition out when submitting the solution. *)
+(* Some testing; comment this definition out when submitting the solution. 
 let _ =
   List.iter
     (fun x ->
        try  Printf.printf "%s=%d\n" x @@ s x
        with Failure s -> Printf.printf "%s\n" s
-    ) ["x"; "a"; "y"; "z"; "t"; "b"]
+    ) ["x"; "a"; "y"; "z"; "t"; "b"] *)
 
 (* Expression evaluator
 
@@ -50,5 +50,32 @@ let _ =
    Takes a state and an expression, and returns the value of the expression in 
    the given state.
 *)
-let eval = failwith "Not implemented yet"
+
+(* val boolToInt : bool -> int *)
+let boolToInt expr = if expr then 1 else 0
+
+(* val intToBool : int -> bool *)
+let intToBool expr = expr <> 0
+
+(* val operators : string -> int -> int -> int *)
+let operators = function
+	| "+" 	-> ( + )
+	| "-" 	-> ( - )
+	| "*" 	-> ( * )
+	| "/" 	-> ( / )
+	| "%" 	-> ( mod )
+	| "<" 	-> fun a b -> boolToInt (a <  b)
+	| "<="	-> fun a b -> boolToInt (a <= b)
+	| ">"  	-> fun a b -> boolToInt (a >  b)
+	| ">=" 	-> fun a b -> boolToInt (a >= b)
+	| "==" 	-> fun a b -> boolToInt (a == b)
+	| "!=" 	-> fun a b -> boolToInt (a <> b)
+	| "&&" 	-> fun a b -> boolToInt ((intToBool a) && (intToBool b))
+	| "!!" 	-> fun a b -> boolToInt ((intToBool a) || (intToBool b)) 
+	| _ 	-> failwith ("Unknown Operator :c")
+
+let rec eval st expr = match expr with
+	| Const n 		-> 	n
+	| Var x 		->	st x 
+	| Binop (oper, a, b)	->	operators oper (eval st a) (eval st b)
                     
