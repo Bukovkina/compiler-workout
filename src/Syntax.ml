@@ -67,9 +67,9 @@ module Expr =
 		| _ 	-> failwith ("Unknown Operator :c")
 
 	let rec eval st expr = match expr with
-		| Const  n 	-> n
-		| Var 	 x 	-> st x 
-		| Binop (oper, a, b) -> operators oper (eval st a) (eval st b)
+		| Const  n 		-> n
+		| Var 	 x 		-> st x 
+		| Binop (oper, a, b) 	-> operators oper (eval st a) (eval st b)
 
   end
                     
@@ -96,7 +96,7 @@ module Stmt =
     let rec eval (s, i, o) state = match state with
     	| Read		 x	-> (Expr.update x (List.hd i) s, List.tl i, o)
     	| Write		 e	-> (s, i, o @ [Expr.eval s e])
-    	| Assign	(x, e)	-> (Expr.update x (Expr.eval s, e) s, i, o)
+    	| Assign	(x, e)	-> (Expr.update x (Expr.eval s e) s, i, o)
     	| Seq		(s1, s2)-> eval (eval (s, i, o) s1) s2
                                                          
   end
