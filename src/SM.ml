@@ -31,7 +31,7 @@ let rec eval (st, (s, i, o)) pr = match pr with
 	| WRITE		:: p -> let (z :: r) = st in
 				eval (r, (s, i, o @ [z])) p
 	| BINOP	oper	:: p -> let (y :: x :: r) = st in
-				eval (Expr.operations oper x y :: r, (s, i, o)) p
+				eval (Expr.operators oper x y :: r, (s, i, o)) p
 	| CONST	z	:: p -> eval (z :: st, (s, i, o)) p
 	| LD	x	:: p -> eval (s x :: st, (s, i, o)) p
 	| ST	x	:: p -> let (z :: r) = st in
