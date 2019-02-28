@@ -25,17 +25,17 @@ type config = int list * Syntax.Stmt.config
    Takes a configuration and a program, and returns a configuration as a result
  *)                         
 let rec eval (st, (s, i, o)) pr = match pr with
-	| []			  -> (st, (s, i, o))
-	| Read		 :: p -> let (z :: r) = i in
-						 eval (z :: st, (s, r ,o)) p
-	| Write		 :: p -> let (z :: r) = st in
-						 eval (r, (s, i, o @ [z])) p
-	| Binop	oper :: p -> let (y :: x :: r) = st in
-						 eval (Expr.operations oper x y :: r, (s, i, o)) p
-	| Const	z	 :: p -> eval (z :: st, (s, i, o)) p
-	| LD	x	 :: p -> eval (s x :: st, (s, i, o)) p
-	| ST	x	 :: p -> let (z :: r) = st in
-						 eval (r, (Expr.update x z s, i, o)) p
+	| []		-> (st, (s, i, o))
+	| Read	:: p -> let (z :: r) = i in
+					eval (z :: st, (s, r ,o)) p
+	| Write	:: p -> let (z :: r) = st in
+					eval (r, (s, i, o @ [z])) p
+	| Binop	oper	:: p -> let (y :: x :: r) = st in
+					eval (Expr.operations oper x y :: r, (s, i, o)) p
+	| Const	z	:: p -> eval (z :: st, (s, i, o)) p
+	| LD	x	:: p -> eval (s x :: st, (s, i, o)) p
+	| ST	x	:: p -> let (z :: r) = st in
+					eval (r, (Expr.update x z s, i, o)) p
 
 (* Top-level evaluation
 
@@ -54,13 +54,13 @@ let run i p = let (_, (_, _, o)) = eval ([], (Syntax.Expr.empty, i, [])) p in o
  *)
 
 let rec compileExpr e = match e with
-	| Expr.Const	 n			-> [Const n]
-	| Expr.Var		 x			-> [LD x]
+	| Expr.Const	 n	-> [Const n]
+	| Expr.Var	 x	-> [LD x]
 	| Expr.Binop	(oper, a, b)-> (compileExpr a) @ (compileExpr b) @ [Binop oper]
 
 let rec compile t = match t with
-	| Stmt.Read		 x		-> [Read; ST x]
+	| Stmt.Read	 x		-> [Read; ST x]
 	| Stmt.Write	 e		-> (compileExpr e) @ [Write]
 	| Stmt.Assign	(x, e)	-> (compileExpr e) @ [ST x]
-	| Stmt.Seq		(s1, s2)-> (compile s1) @ (compile s2)
+	| Stmt.Seq	(s1, s2)-> (compile s1) @ (compile s2)
 
