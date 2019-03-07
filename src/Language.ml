@@ -99,9 +99,8 @@ module Expr =
           primary
         );
 
-		primary: x:IDENT {Var x} | n:DECIMAL {Const n} | -"(" expr -")"
-	)   
-*)
+	primary: x:IDENT {Var x} | n:DECIMAL {Const n} | -"(" expr -")"
+	) 
   end
                     
 (* Simple statements: syntax and sematics *)
