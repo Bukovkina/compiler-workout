@@ -5,7 +5,7 @@ open GT
 
 (* Opening a library for combinator-based syntax analysis *)
 open Ostap.Combinators
-       
+     
 (* Simple expressions: syntax and semantics *)
 module Expr =
   struct
@@ -83,24 +83,25 @@ module Expr =
    
     *)
     ostap (
-    	expr:
-    		!(Ostap.Util.expr
-    			(fun x -> x)
-    			(Array.map (fun (asc, op) -> asc, List.map binopParser op) 
-				[|
-					'Lefta, ["!!"];
-					'Lefta, ["&&"];
-					'Nona,	["<="; "<"; ">="; ">"; "=="; "!="];
-					'Lefta, ["+"; "-"];
-					'Lefta, ["*"; "/"; "%"];
-				|]
-    			)
-    			primary
-    		);
-    		
-    	primary: x:IDENT {Var x} | n:DECIMAL {Const n} | -"(" expr -")"
-	)    
+	expr:
+	!(Ostap.Util.expr
+		(fun x -> x)
+		(Array.map
+			(fun (a, ops) -> a, List.map binopParser ops)
+			[|
+			`Lefta, ["!!"];
+			`Lefta, ["&&"];
+			`Nona , ["<="; "<"; ">="; ">"; "=="; "!="];
+			`Lefta, ["+"; "-"];
+			`Lefta, ["*"; "/"; "%"];
+			|]
+		)
+          primary
+        );
 
+		primary: x:IDENT {Var x} | n:DECIMAL {Const n} | -"(" expr -")"
+	)   
+*)
   end
                     
 (* Simple statements: syntax and sematics *)

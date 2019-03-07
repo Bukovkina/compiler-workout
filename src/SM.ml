@@ -1,6 +1,5 @@
 open GT       
 open Language
-open Syntax
        
 (* The type for the stack machine instructions *)
 @type insn =
