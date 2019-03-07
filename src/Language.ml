@@ -70,9 +70,9 @@ module Expr =
 		| _ 	-> failwith ("Unknown Operator :c")
 
 	let rec eval st expr = match expr with
-		| Const  n 			 -> n
-		| Var 	 x 			 -> st x 
-		| Binop (oper, a, b) -> operators oper (eval st a) (eval st b)
+		| Const  n 		-> n
+		| Var 	 x 		-> st x 
+		| Binop (oper, a, b) 	-> operators oper (eval st a) (eval st b)
 
 
 	let binopParser oper = ostap (- $(oper)), (fun x y -> Binop (oper, x, y))
@@ -87,13 +87,13 @@ module Expr =
     		!(Ostap.Util.expr
     			(fun x -> x)
     			(Array.map (fun (asc, op) -> asc, List.map binopParser op) 
-					[|
-						'Lefta, ["!!"];
-						'Lefta, ["&&"];
-						'Nona,	["<="; "<"; ">="; ">"; "=="; "!="];
-						'Lefta, ["+"; "-"];
-						'Lefta, ["*"; "/"; "%"];
-					|]
+				[|
+					'Lefta, ["!!"];
+					'Lefta, ["&&"];
+					'Nona,	["<="; "<"; ">="; ">"; "=="; "!="];
+					'Lefta, ["+"; "-"];
+					'Lefta, ["*"; "/"; "%"];
+				|]
     			)
     			primary
     		);
@@ -127,17 +127,17 @@ module Stmt =
 	   	| Read		 x	-> (Expr.update x (List.hd i) s, List.tl i, o)
 	   	| Write		 e	-> (s, i, o @ [Expr.eval s e])
 	  	| Assign	(x, e)	-> (Expr.update x (Expr.eval s e) s, i, o)
-		| Seq	(s1, s2)-> eval (eval (s, i, o) s1) s2
+		| Seq		(s1, s2)-> eval (eval (s, i, o) s1) s2
 
     (* Statement parser *)
     ostap (
       stmt: 
-      	  x:IDENT 	":=" 	e:!(Expr.expr)		{Assign (x, e)}
-      	| "read" 	"("		x:IDENT			")"	{Read x}
-      	| "write"	"("		e:!(Expr.expr)	")"	{Write e};
+      	  x:IDENT 	":="	e:!(Expr.expr)		{Assign (x, e)}
+      	| "read"	"(" 	x:IDENT		")"	{Read x}
+      	| "write"	"(" 	e:!(Expr.expr)	")"	{Write e};
       
       parse: 
-      	  s1:stmt 	";" 	s2:parse 			{Seq (s1, s2)}
+      	  s1:stmt 	";" 	s2:parse 		{Seq (s1, s2)}
       	| stmt
     )
       
