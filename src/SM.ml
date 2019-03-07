@@ -1,5 +1,6 @@
 open GT       
 open Language
+open Syntax
        
 (* The type for the stack machine instructions *)
 @type insn =
@@ -24,7 +25,18 @@ type config = int list * Stmt.config
 
    Takes a configuration and a program, and returns a configuration as a result
  *)                         
-let eval _ = failwith "Not yet implemented"
+let rec eval (st, (s, i, o)) pr = match pr with
+	| []		     -> (st, (s, i, o))
+	| READ		:: p -> let (z :: r) = i in
+						eval (z :: st, (s, r ,o)) p
+	| WRITE		:: p -> let (z :: r) = st in
+						eval (r, (s, i, o @ [z])) p
+	| BINOP	op	:: p -> let (y :: x :: r) = st in
+						eval (Expr.operators op x y :: r, (s, i, o)) p
+	| CONST	z	:: p -> eval (z :: st, (s, i, o)) p
+	| LD	x	:: p -> eval (s x :: st, (s, i, o)) p
+	| ST	x	:: p -> let (z :: r) = st in
+						eval (r, (Expr.update x z s, i, o)) p
 
 (* Top-level evaluation
 
@@ -41,4 +53,14 @@ let run p i = let (_, (_, _, o)) = eval ([], (Language.Expr.empty, i, [])) p in 
    Takes a program in the source language and returns an equivalent program for the
    stack machine
  *)
-let compile _ = failwith "Not yet implemented"
+ 
+let rec compileExpr e = match e with
+	| Expr.Const	 n			-> [CONST n]
+	| Expr.Var	 	 x			-> [LD x]
+	| Expr.Binop	(op, a, b)	-> (compileExpr a) @ (compileExpr b) @ [BINOP op]
+
+let rec compile t = match t with
+	| Stmt.Read	 	 x			-> [READ; ST x]
+	| Stmt.Write	 e			-> (compileExpr e) @ [WRITE]
+	| Stmt.Assign	(x, e)		-> (compileExpr e) @ [ST x]
+	| Stmt.Seq		(s1, s2)	-> (compile s1) @ (compile s2)

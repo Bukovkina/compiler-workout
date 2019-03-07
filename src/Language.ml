@@ -44,8 +44,38 @@ module Expr =
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)
-    let eval _ = failwith "Not implemented yet"
+    
+    
+	(* val boolToInt : bool -> int *)
+	let boolToInt expr = if expr then 1 else 0
 
+	(* val intToBool : int -> bool *)
+	let intToBool expr = expr <> 0
+
+	(* val operators : string -> int -> int -> int *)
+	let operators = function
+		| "+" 	-> ( + )
+		| "-" 	-> ( - )
+		| "*" 	-> ( * )
+		| "/" 	-> ( / )
+		| "%" 	-> ( mod )
+		| "<" 	-> fun a b -> boolToInt (a <  b)
+		| "<="	-> fun a b -> boolToInt (a <= b)
+		| ">"  	-> fun a b -> boolToInt (a >  b)
+		| ">=" 	-> fun a b -> boolToInt (a >= b)
+		| "==" 	-> fun a b -> boolToInt (a == b)
+		| "!=" 	-> fun a b -> boolToInt (a <> b)
+		| "&&" 	-> fun a b -> boolToInt ((intToBool a) && (intToBool b))
+		| "!!" 	-> fun a b -> boolToInt ((intToBool a) || (intToBool b)) 
+		| _ 	-> failwith ("Unknown Operator :c")
+
+	let rec eval st expr = match expr with
+		| Const  n 			 -> n
+		| Var 	 x 			 -> st x 
+		| Binop (oper, a, b) -> operators oper (eval st a) (eval st b)
+
+
+	let binopParser oper = ostap (- $(oper)), (fun x y -> Binop (oper, x, y))
     (* Expression parser. You can use the following terminals:
 
          IDENT   --- a non-empty identifier a-zA-Z[a-zA-Z0-9_]* as a string
@@ -53,8 +83,23 @@ module Expr =
    
     *)
     ostap (
-      parse: empty {failwith "Not implemented yet"}
-    )
+    	expr:
+    		!(Ostap.Util.expr
+    			(fun x -> x)
+    			(Array.map (fun (asc, op) -> asc, List.map binopParser op) 
+					[|
+						'Lefta, ["!!"];
+						'Lefta, ["&&"];
+						'Nona,	["<="; "<"; ">="; ">"; "=="; "!="];
+						'Lefta, ["+"; "-"];
+						'Lefta, ["*"; "/"; "%"];
+					|]
+    			)
+    			primary
+    		);
+    		
+    	primary: x:IDENT {Var x} | n:DECIMAL {Const n} | -"(" expr -")"
+	)    
 
   end
                     
@@ -78,11 +123,22 @@ module Stmt =
 
        Takes a configuration and a statement, and returns another configuration
     *)
-    let eval _ = failwith "Not implemented yet"
+	let rec eval (s, i, o) state = match state with
+	   	| Read		 x	-> (Expr.update x (List.hd i) s, List.tl i, o)
+	   	| Write		 e	-> (s, i, o @ [Expr.eval s e])
+	  	| Assign	(x, e)	-> (Expr.update x (Expr.eval s e) s, i, o)
+		| Seq	(s1, s2)-> eval (eval (s, i, o) s1) s2
 
     (* Statement parser *)
     ostap (
-      parse: empty {failwith "Not implemented yet"}
+      stmt: 
+      	  x:IDENT 	":=" 	e:!(Expr.expr)		{Assign (x, e)}
+      	| "read" 	"("		x:IDENT			")"	{Read x}
+      	| "write"	"("		e:!(Expr.expr)	")"	{Write e};
+      
+      parse: 
+      	  s1:stmt 	";" 	s2:parse 			{Seq (s1, s2)}
+      	| stmt
     )
       
   end
