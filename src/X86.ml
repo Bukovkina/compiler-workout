@@ -80,7 +80,58 @@ open SM
    Take an environment, a stack machine program, and returns a pair --- the updated environment and the list
    of x86 instructions
 *)
-let compile _ _ = failwith "Not yet implemented"
+
+let binop op a b res = 
+  let opToSuf = function
+    | "<"  -> "l"
+    | "<=" -> "le"
+    | ">"  -> "g"
+    | ">=" -> "ge"
+    | "==" -> "e"
+    | "!=" -> "ne"
+    | _	   -> failwith ("Unknown Bool Operator :c")
+  in match op with
+	| "+"
+	| "-"
+	| "*"	-> [Mov (a, eax); Binop (op, b, eax); Mov (eax, res)] 
+	| "/"	-> [Mov (a, eax); Cltd; IDiv b; Mov (eax, res)]
+	| "%"	-> [Mov (a, eax); Cltd; IDiv b; Mov (edx, res)]
+	| "<"
+	| "<="
+	| ">"
+	| ">="
+	| "=="
+	| "!=" 	-> [Mov (a, eax); Binop ("cmp", b, eax); Mov (eax, a);
+			Mov (L 0, eax); Set (opToSuf op, "%al"); Mov (eax, res)]
+	| "!!"
+	| "&&"	-> [Mov (L 0, eax); Mov (L 0, edx); Binop ("cmp", L 0, b); 
+			Set ("nz", "%al"); Binop ("cmp", L 0, a); Set ("nz", "%dl");
+			Binop (op, eax, edx); Mov (edx, res)]
+	| _	-> failwith ("Unknown Operator :c")
+
+let rec compile env = function
+  | []		  -> env, []
+  | instr :: code -> let newEnv, asm = (
+	match instr with
+	| CONST	n -> let s, curEnv = env#allocate
+			in curEnv, [Mov (L n, s)]
+	| WRITE	  -> let s, curEnv = env#pop
+			in curEnv, [Push s; Call "Lwrite"; Pop eax]
+	| READ	  -> let s, curEnv = env#allocate
+			in curEnv, [Call "Lread"; Mov (eax, s)]
+	| LD 	x -> let s, curEnv = (env#global x)#allocate
+			in let xLoc = curEnv#loc x
+			in curEnv, [Mov (M xLoc, eax); Mov (eax, s)]
+	| ST 	x -> let s, curEnv = (env#global x)#pop
+			in let xLoc = curEnv#loc x
+			in curEnv, [Mov (s, eax); Mov (eax, M xLoc)]
+	| BINOP op-> let x, y, curEnv = env#pop2
+			in let s, curEnv = curEnv#allocate
+			in curEnv, binop op y x s
+	)
+in let resEnv, resAsm = compile newEnv code
+in resEnv, asm @ resAsm
+		
 
 (* A set of strings *)           
 module S = Set.Make (String)
