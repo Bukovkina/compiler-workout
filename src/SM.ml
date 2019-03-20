@@ -28,7 +28,18 @@ type config = int list * Stmt.config
    Takes an environment, a configuration and a program, and returns a configuration as a result. The
    environment is used to locate a label to jump to (via method env#labeled <label_name>)
 *)                         
-let rec eval env conf prog = failwith "Not yet implemented"
+let rec eval (st, (s, i, o)) = function
+  | []	        	-> (st, (s, i, o))
+  | READ	   :: p -> let (z :: r) = i 
+				in eval (z :: st, (s, r ,o)) p
+  | WRITE	   :: p -> let (z :: r) = st
+				in eval (r, (s, i, o @ [z])) p
+  | BINOP	op :: p -> let (y :: x :: r) = st
+				in eval (Expr.operators op x y :: r, (s, i, o)) p
+  | CONST	z  :: p -> eval (z :: st, (s, i, o)) p
+  | LD		x  :: p -> eval (s x :: st, (s, i, o)) p
+  | ST		x  :: p -> let (z :: r) = st
+				in eval (r, (Expr.update x z s, i, o)) p
 
 (* Top-level evaluation
 
@@ -53,4 +64,13 @@ let run p i =
    Takes a program in the source language and returns an equivalent program for the
    stack machine
 *)
-let compile p = failwith "Not yet implemented"
+let rec compile =
+  let rec expr = function
+    | Expr.Var    x	    -> [LD x]
+    | Expr.Const  n	    -> [CONST n]
+    | Expr.Binop (op, x, y) -> expr x @ expr y @ [BINOP op]
+  in function
+    | Stmt.Seq 	  (s1, s2)  -> compile s1 @ compile s2
+    | Stmt.Read    x        -> [READ; ST x]
+    | Stmt.Write   e        -> expr e @ [WRITE]
+    | Stmt.Assign (x, e) -> expr e @ [ST x]
