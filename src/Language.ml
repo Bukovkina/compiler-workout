@@ -69,7 +69,7 @@ module Expr =
 	let rec eval st = function
 	  | Const  n 		-> n
 	  | Var    x 		-> st x 
-	  | Binop (oper, a, b) -> operators oper (eval st a) (eval st b)
+	  | Binop (oper, a, b)  -> operators oper (eval st a) (eval st b)
 
     (* Expression parser. You can use the following terminals:
 
@@ -115,7 +115,7 @@ module Stmt =
     (* empty statement                  *) | Skip
     (* conditional                      *) | If     of Expr.t * t * t
     (* loop with a pre-condition        *) | While  of Expr.t * t
-    (* loop with a post-condition       *) (* add yourself *)  with show
+    (* loop with a post-condition       *) | Repeat of t * Expr.t  with show
                                                                     
     (* The type of configuration: a state, an input stream, an output stream *)
     type config = Expr.state * int list * int list 
@@ -126,24 +126,49 @@ module Stmt =
 
        Takes a configuration and a statement, and returns another configuration
     *)
-	let rec eval (s, i, o) state = match state with
+	let rec eval (s, i, o) = function
 	  | Read	 x	-> (Expr.update x (List.hd i) s, List.tl i, o)
 	  | Write	 e	-> (s, i, o @ [Expr.eval s e])
 	  | Assign	(x, e)	-> (Expr.update x (Expr.eval s e) s, i, o)
-	  | Seq		(s1, s2)-> eval (eval (s, i, o) s1) s2
+	  | Seq	      (s1, s2)  -> eval (eval (s, i, o) s1) s2
+	  | Skip		-> (s, i, o)
+	  | If     (e, s1, s2)	-> eval (s, i, o) (if (Expr.eval s e) != 0 then s1 else s2)  
+	  | While      (e, s1)	-> if (Expr.eval s e) != 0 then eval (eval (s, i, o) s1) (While (e, s1)) else (s, i, o)
+	  | Repeat     (s1, e)	-> let (s', i', o') = eval (s, i, o) s1
+	  				in if (Expr.eval s' e) == 0 then eval (s', i', o') (Repeat (s1, e)) else (s', i', o') 
                                
     (* Statement parser *)
-    ostap (
-      stmt: 
+   ostap (
+       stmt: 
       	    x:IDENT 	":="	e:!(Expr.expr)		{Assign (x, e)}
       	  | "read"	"(" 	x:IDENT		")"	{Read x}
-      	  | "write"	"(" 	e:!(Expr.expr)	")"	{Write e};
+      	  | "write"	"(" 	e:!(Expr.expr)	")"	{Write e}
+      	  | "skip"					{Skip}
+      	  | "if"		e:!(Expr.expr)
+      	    "then"		s1:parse	
+      	    			s2:elses 		{If (e, s1, s2)}
+      	  | "while"		e:!(Expr.expr)
+      	    "do"		s1:parse
+      	    "od"					{While (e, s1)}
+      	  | "repeat"		s1:parse
+      	    "until"		e:!(Expr.expr)		{Repeat (s1, e)}
+      	  | "for"		s1:parse	","
+      	  			e:!(Expr.expr)	","
+      	  			s2:parse	
+      	    "do"		s3:parse
+      	    "od"					{Seq (s1, While (e, Seq (s3, s2)))};
+      	    
+      elses:
+      	    "fi"					{Skip}
+      	  | "else"		s:parse		"fi"	{s}
+      	  | "elif"		e:!(Expr.expr)
+      	    "then"		s1:parse
+      	    			s2:elses		{If (e, s1, s2)};
       
       parse: 
       	    s1:stmt 	";" 	s2:parse 		{Seq (s1, s2)}
       	  | stmt
-	)
-      
+	)     
   end
 
 (* The top-level definitions *)

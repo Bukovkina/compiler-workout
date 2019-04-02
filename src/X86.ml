@@ -120,21 +120,25 @@ let rec compile env = function
   | []		  -> env, []
   | instr :: code -> let newEnv, asm = (
 	match instr with
-	| CONST	n -> let s, curEnv = env#allocate
-			in curEnv, [Mov (L n, s)]
-	| WRITE	  -> let s, curEnv = env#pop
-			in curEnv, [Push s; Call "Lwrite"; Pop eax]
-	| READ	  -> let s, curEnv = env#allocate
-			in curEnv, [Call "Lread"; Mov (eax, s)]
-	| LD 	x -> let s, curEnv = (env#global x)#allocate
-			in let xLoc = curEnv#loc x
-			in curEnv, [Mov (M xLoc, eax); Mov (eax, s)]
-	| ST 	x -> let s, curEnv = (env#global x)#pop
-			in let xLoc = curEnv#loc x
-			in curEnv, [Mov (s, eax); Mov (eax, M xLoc)]
-	| BINOP op-> let x, y, curEnv = env#pop2
-			in let s, curEnv = curEnv#allocate
-			in curEnv, binop op y x s
+	| CONST	n 	-> let s, curEnv = env#allocate
+				in curEnv, [Mov (L n, s)]
+	| WRITE	  	-> let s, curEnv = env#pop
+				in curEnv, [Push s; Call "Lwrite"; Pop eax]
+	| READ	  	-> let s, curEnv = env#allocate
+				in curEnv, [Call "Lread"; Mov (eax, s)]
+	| LD 	x 	-> let s, curEnv = (env#global x)#allocate
+				in let xLoc = curEnv#loc x
+				in curEnv, [Mov (M xLoc, eax); Mov (eax, s)]
+	| ST 	x 	-> let s, curEnv = (env#global x)#pop
+				in let xLoc = curEnv#loc x
+				in curEnv, [Mov (s, eax); Mov (eax, M xLoc)]
+	| BINOP op	-> let x, y, curEnv = env#pop2
+				in let s, curEnv = curEnv#allocate
+				in curEnv, binop op y x s
+	| LABEL l	-> env, [Label l]
+	| JMP   l	-> env, [Jmp l]
+	| CJMP  (x, l)	-> let s, curEnv = env#pop
+				in curEnv, [Binop ("cmp", L 0, s); CJmp (x, l)]
 	)
 	in let resEnv, resAsm = compile newEnv code
 	in resEnv, asm @ resAsm
