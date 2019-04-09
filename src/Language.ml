@@ -63,9 +63,10 @@ module Expr =
        Takes a state and an expression, and returns the value of the expression in 
        the given state.
     *)                                                       
+    let itb b = b <> 0 
+    
     let to_func op =
       let bti   = function true -> 1 | _ -> 0 in
-      let itb b = b <> 0 in
       let (|>) f g   = fun x y -> f (g x y) in
       match op with
       | "+"  -> (+)
@@ -96,7 +97,7 @@ module Expr =
                                                                                                                   
     *)
     ostap (                                      
-      parse:
+      expr:
 	  !(Ostap.Util.expr 
              (fun x -> x)
 	     (Array.map (fun (a, s) -> a, 
@@ -115,7 +116,7 @@ module Expr =
       primary:
         n:DECIMAL {Const n}
       | x:IDENT   {Var x}
-      | -"(" parse -")"
+      | -"(" expr -")"
     )
     
   end
@@ -150,13 +151,58 @@ module Stmt =
 
        which returns a list of formal parameters and a body for given definition
     *)
-    let rec eval _ = failwith "Not Implemented Yet"
+    let rec eval env (s, i, o) = function
+	| Read	 	  x	-> (State.update x (List.hd i) s, List.tl i, o)
+	| Write	 	  e	-> (s, i, o @ [Expr.eval s e])
+	| Assign      (x, e)	-> (State.update x (Expr.eval s e) s, i, o)
+	| Seq	    (s1, s2)  	-> eval env (eval env (s, i, o) s1) s2
+	| Skip			-> (s, i, o)
+	| If     (e, s1, s2)	-> eval env (s, i, o) (if (Expr.eval s e) != 0 then s1 else s2)  
+	| While      (e, s1)	-> if (Expr.eval s e) != 0 then eval env (eval env (s, i, o) s1) (While (e, s1)) else (s, i, o)
+	| Repeat     (s1, e)	-> let (s', i', o') = eval env (s, i, o) s1
+	  			   in if (Expr.eval s' e) == 0 then eval env (s', i', o') (Repeat (s1, e)) else (s', i', o') 
+	| Call	      (f, a)	-> let (params, locals, body) = env#definition f
+				   in let fstate = State.push_scope s (params @ locals)
+				   in let args = List.map (Expr.eval s) a
+				   in let updater state argname argvalue = State.update argname argvalue state
+				   in let fscope = List.fold_left2 updater fstate params args
+				   in let (s', i', o') = eval env (fscope, i, o) body
+				   in (State.drop_scope s' s, i', o')
+     
                                 
     (* Statement parser *)
-    ostap (                                      
-      parse: empty {failwith "Not yet implemented"}
-    )
+    ostap (
+       stmt: 
+      	    x: IDENT 	":="	e: !(Expr.expr)		{Assign (x, e)}
+      	  | "read"	"(" 	x: IDENT	  ")"	{Read x}
+      	  | "write"	"(" 	e: !(Expr.expr)	  ")"	{Write e}
+      	  | "skip"					{Skip}
+      	  | "if"		e: !(Expr.expr)
+      	    "then"		s1: parse	
+      	    			s2: elses 		{If (e, s1, s2)}
+      	  | "while"		e: !(Expr.expr)
+      	    "do"		s1: parse
+      	    "od"					{While (e, s1)}
+      	  | "repeat"		s1: parse
+      	    "until"		e: !(Expr.expr)		{Repeat (s1, e)}
+      	  | "for"		s1: parse	   ","
+      	  			e: !(Expr.expr)	   ","
+      	  			s2: parse	
+      	    "do"		s3: parse
+      	    "od"					{Seq (s1, While (e, Seq (s3, s2)))}
+      	  | f: IDENT	"("	a: (!(Expr.expr))* ")"	{Call (f, a)} ;
+      	    
+      elses:
+      	    "fi"					{Skip}
+      	  | "else"		s: parse	  "fi"	{s}
+      	  | "elif"		e: !(Expr.expr)
+      	    "then"		s1: parse
+      	    			s2: elses		{If (e, s1, s2)};
       
+      parse: 
+      	    s1: stmt 	";" 	s2: parse 		{Seq (s1, s2)}
+      	  | stmt
+	)     
   end
 
 (* Function and procedure definitions *)
@@ -167,8 +213,20 @@ module Definition =
     type t = string * (string list * string list * Stmt.t)
 
     ostap (                                      
-      parse: empty {failwith "Not yet implemented"}
-    )
+      parse:
+        "fun"	f: IDENT	
+        "(" 	args: (IDENT)*   	")"
+        	locals: (%"local" (IDENT)*)?
+        "{"	body: !(Stmt.parse)  	"}"
+        {
+          f, (args, (
+              match locals with
+                None   -> [] 
+              | Some l -> l
+           ), body)
+        }
+    ) 
+    
 
   end
     
